@@ -15,8 +15,8 @@ const appAndroidConfig = {
 
 module.exports = { 
     appAndroidConfig,
-    CORRECT_ID : 208796102,
-    CORRECT_PIN : 8541343,
+    CORRECT_ID : *********,
+    CORRECT_PIN : *********,
     INCORRECT_ID : 432125874,
     INCORRECT_PIN : 4321234,
 }

@@ -5,30 +5,6 @@ const { appAndroidConfig, CORRECT_ID, CORRECT_PIN, INCORRECT_ID, INCORRECT_PIN }
 
 let client;
 
-let openNoCardVisitForm = async (client)=>{
-  await client.setTimeout({ 'implicit': 15000 })
-      
-    const whatsNew = await getElementByText("מה חדש באפליקציה?")
-
-    whatsNew.waitForDisplayed(300000)
-    let whatsNewisDisplayed = await whatsNew.isDisplayed()
-    if (whatsNewisDisplayed) {
-      const closeAlert = await getElementByResourceId('ib_whats_new_close');
-      await closeAlert.click()
-    }
-    
-      
-    
-    const openMenu = await getElementByResourceId('btn_toggleDrawer')
-    openMenu.waitForDisplayed(10000)
-    await openMenu.click()
-
-    const bottomElementSelector = `new UiScrollable(new UiSelector().scrollable(true)).scrollIntoView(new UiSelector().text("ביקור ללא כרטיס"))`
-    const openCard = await client.$(`android=${bottomElementSelector}`)
-    await openCard.click()
-    
-}
-
 let getElementByResourceId = (id) => {
   return client.$(`android=new UiSelector().resourceId("com.ideomobile.maccabi:id/${id}")`)
 }
@@ -37,9 +13,71 @@ let getElementByText = (text) => {
   return client.$(`android=new UiSelector().textContains("${text}")`)
 }
 
+let isElementDisplayed = async (element) => {
+  element.waitForDisplayed(10000)
+  return await element.isDisplayed()
+}
+
+let isElementEnabled = async (element_id) => {
+  const element = await getElementByResourceId(element_id)
+  return await element.isEnabled()
+}
+   
+let clickElement = async (element_id) => {
+  const element = await getElementByResourceId(element_id)
+  await element.click()
+}
+
+let scrollToElement = async (text) => {
+  const elementSelector = `new UiScrollable(new UiSelector()).scrollIntoView(text(\"${text}"))`
+  return await client.$(`android=${elementSelector}`)    
+}
+
+let closeWhatsNewAd = async () => {
+  const whatsNew = await getElementByText("מה חדש באפליקציה?")
+
+  let whatsNewisDisplayed = await isElementDisplayed(whatsNew)
+  if ( whatsNewisDisplayed ) {
+    await clickElement('ib_whats_new_close')
+  }
+}
+
+let openNoCardVisitForm = async (client) => {
+  await client.setTimeout({ 'implicit': 15000 })
+  await closeWhatsNewAd()
+    
+  await clickElement('btn_toggleDrawer')
+  
+  let openCard = await scrollToElement('ביקור ללא כרטיס')
+  await openCard.click()
+    
+}
+
+let setValueToElement = async (element_id, value) => {
+  const textField = await getElementByResourceId(element_id)
+  await textField.setValue( value ); 
+}
+
+let getElementText = async (element_id) => {
+  const textElement = await getElementByResourceId(element_id)
+  return await textElement.getText();
+}
+
+let setFormValues = async (id_number, password) => {
+  await setValueToElement( 'textInputEditText', id_number )
+  await setValueToElement( 'textInputEditTextPassword', password )
+}
+
+let accountLogin = async (id_number, password) => {
+  await setFormValues(id_number, password)
+  await clickElement('enterButton')
+}
+
+
+// Test
 describe('Test Maccabi interactions', function () {
   
-
+  // Load the App and then go to no-card-visit form
   beforeEach(async function () {
     client = await webdriverio.remote(appAndroidConfig);
     await openNoCardVisitForm(client)
@@ -49,70 +87,46 @@ describe('Test Maccabi interactions', function () {
     await client.deleteSession();
   });
 
+
+  // Currect ID and password
   it('should get no-card-visit ok', async function () {
     
+    
+    await accountLogin(CORRECT_ID, CORRECT_PIN)
 
-    const textField = await getElementByResourceId('textInputEditText')
-    await textField.setValue( CORRECT_ID );
-    
-    const passField = await getElementByResourceId('textInputEditTextPassword')
-    await passField.setValue( CORRECT_PIN );
-    
-    const submitButton = await getElementByResourceId('enterButton')
-    await submitButton.click()
-    
     await client.setTimeout({ 'implicit': 15000 })
 
     const resonButton = await client.$("~לחצן שכחתי כרטיס")
     await resonButton.click()
+    const successTitleValue = await getElementText('tv_success_title')
     
-    const successTitle = await getElementByResourceId('tv_success_title')
-    const successTitleValue = await successTitle.getText();
-
     assert.strictEqual(successTitleValue, "ביקור ללא כרטיס אושר בהצלחה");
     
     return
   
   });
 
+  // Currect ID, Wrong password
   it('should get an incorrect login error', async function () {
-        
-    const textField = await getElementByResourceId('textInputEditText')
-    await textField.setValue( CORRECT_ID );
     
-    const passField = await getElementByResourceId('textInputEditTextPassword')
-    await passField.setValue( INCORRECT_PIN );
-    
-    const submitButton = await getElementByResourceId('enterButton')
-    await submitButton.click()
-    
-    const errorAlert = await getElementByText("ההזדהות נכשלה")
-    errorAlert.waitForDisplayed(30000)
-    
-    const errorTitleValue = await errorAlert.getText();
+    await accountLogin(CORRECT_ID, INCORRECT_PIN)
 
-    assert.strictEqual(errorTitleValue, "ההזדהות נכשלה");
-    
+    const errorAlert = await getElementByText("ההזדהות נכשלה")
+    let errorAlertShown = await isElementDisplayed(errorAlert)
+
+    assert.isTrue(errorAlertShown)
     return
   
   });
 
-
+  // Wrong ID and password
   it('should be disabled button - wrong params', async function () {
       
+    await setFormValues(INCORRECT_ID, INCORRECT_PIN)
 
-    const textField = await getElementByResourceId('textInputEditText')
-    await textField.setValue(INCORRECT_ID);
-   
-    const passField = await getElementByResourceId('textInputEditTextPassword')
-    await passField.setValue(INCORRECT_PIN);
+    let isSubmitButtonEnabled = await isElementEnabled('enterButton')
     
-    const submitButton = await getElementByResourceId('enterButton')
-    let submitButtonisEnabled = await submitButton.isEnabled()
-    
-    assert.isFalse(submitButtonisEnabled, 'incorrect values but submit button is enabled!!')
-
+    assert.isFalse(isSubmitButtonEnabled, 'incorrect values but submit button is enabled!!')
     return
-
   });
 });
